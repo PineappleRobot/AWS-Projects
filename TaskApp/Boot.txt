@@ -1,0 +1,31 @@
+#! /bin/bash
+
+mkdir /deploy
+cd /deploy
+
+S3_CONFIG_BUCKET="ec2-userdata-ish" 
+SCRIPT_FILENAME="script.sh"
+LOCAL_PATH="/deploy/${SCRIPT_FILENAME}"
+
+echo "Updating system and installing dox2unix"
+dnf update -y
+dnf install dos2unix -y
+
+echo "Downloading deployment script from s3://${S3_CONFIG_BUCKET}/${SCRIPT_FILENAME}..."
+aws s3 cp s3://${S3_CONFIG_BUCKET}/${SCRIPT_FILENAME} ${LOCAL_PATH}
+
+if [ $? -ne 0 ]; then
+    echo "ERROR: Failed to download deployment script from S3. Check IAM permissions and bucket name."
+    exit 1
+fi
+
+echo "Convert script"
+dos2unix ${SCRIPT_FILENAME}
+
+echo "Making deployment script executable..."
+chmod +x ${SCRIPT_FILENAME}
+
+echo "Executing deployment script..."
+./${SCRIPT_FILENAME}
+
+echo "EC2 Bootstrap process complete."

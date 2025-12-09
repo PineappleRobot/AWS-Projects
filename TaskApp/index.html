@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AWS Deployment Project Tracker</title>
+    <!-- Load Tailwind CSS for modern styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom styles for better aesthetics */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #1a1f26;
+        }
+        .container {
+            max-width: 800px;
+        }
+        .task-item {
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        .completed {
+            text-decoration: line-through;
+            opacity: 0.6;
+            background-color: #e2e8f0;
+        }
+        .header-bg {
+            background-color: #4f46e5;
+        }
+    </style>
+</head>
+<body class="p-4 sm:p-8">
+
+    <div class="container mx-auto bg-white shadow-xl rounded-xl overflow-hidden">
+        
+        <!-- Header -->
+        <header class="header-bg p-6 text-white">
+            <h1 class="text-3xl font-extrabold tracking-tight">Tracker</h1>
+            <p class="mt-1 text-indigo-200">Track your tasks.</p>
+        </header>
+
+        <!-- Input Section -->
+        <section class="p-6 border-b border-gray-100">
+            <div class="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
+                <input type="text" id="taskInput" placeholder="Enter a new project task..." 
+                       class="flex-grow p-3 border border-indigo-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 shadow-sm">
+                <button id="addTaskButton" 
+                        class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-lg transition duration-150 ease-in-out shadow-lg transform hover:scale-[1.02] active:scale-[0.98]">
+                    Add Task
+                </button>
+            </div>
+        </section>
+
+        <!-- Task List -->
+        <section class="p-6">
+            <h2 class="text-xl font-semibold text-gray-700 mb-4">Current Tasks</h2>
+            <ul id="taskList" class="space-y-3">
+                <!-- Tasks will be injected here -->
+            </ul>
+            <p id="emptyMessage" class="text-gray-500 italic mt-4 text-center hidden">
+                Looks like you're all caught up!
+            </p>
+        </section>
+
+        <!-- Footer/Project Details -->
+        <footer class="p-6 bg-gray-50 border-t border-gray-100">
+            <p class="text-sm text-gray-500">
+                *Note: This application uses browser storage, in the future we will use an AWS Database along with a login screen to track tasks across devices
+			</p>
+        </footer>
+
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const taskInput = document.getElementById('taskInput');
+            const addTaskButton = document.getElementById('addTaskButton');
+            const taskList = document.getElementById('taskList');
+            const emptyMessage = document.getElementById('emptyMessage');
+
+            // --- Persistence (Simulated Database) ---
+            let tasks = JSON.parse(localStorage.getItem('tasks')) || [];
+
+            function saveTasks() {
+                localStorage.setItem('tasks', JSON.stringify(tasks));
+                renderTasks();
+            }
+
+            // --- Rendering Functions ---
+            function renderTasks() {
+                taskList.innerHTML = '';
+                if (tasks.length === 0) {
+                    emptyMessage.classList.remove('hidden');
+                } else {
+                    emptyMessage.classList.add('hidden');
+                    tasks.forEach((task, index) => {
+                        const li = document.createElement('li');
+                        li.className = `task-item flex items-center justify-between p-4 bg-white border border-gray-200 rounded-lg shadow-sm ${task.completed ? 'completed' : 'hover:shadow-md'}`;
+                        li.dataset.index = index;
+
+                        const textSpan = document.createElement('span');
+                        textSpan.textContent = task.text;
+                        textSpan.className = 'text-gray-800 flex-grow truncate';
+
+                        const actionsDiv = document.createElement('div');
+                        actionsDiv.className = 'flex space-x-2 ml-4';
+
+                        // Toggle Button
+                        const toggleButton = document.createElement('button');
+                        toggleButton.innerHTML = task.completed ? 
+                            '<svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>' : 
+                            '<svg class="w-5 h-5 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
+                        toggleButton.title = task.completed ? 'Mark as Incomplete' : 'Mark as Complete';
+                        toggleButton.className = 'p-1 hover:bg-gray-100 rounded-full';
+                        toggleButton.onclick = (e) => {
+                            e.stopPropagation(); 
+                            toggleTask(index);
+                        };
+
+                        // Delete Button
+                        const deleteButton = document.createElement('button');
+                        deleteButton.innerHTML = '<svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>';
+                        deleteButton.title = 'Delete Task';
+                        deleteButton.className = 'p-1 hover:bg-red-100 rounded-full';
+                        deleteButton.onclick = (e) => {
+                            e.stopPropagation(); 
+                            deleteTask(index);
+                        };
+
+                        actionsDiv.appendChild(toggleButton);
+                        actionsDiv.appendChild(deleteButton);
+                        
+                        li.appendChild(textSpan);
+                        li.appendChild(actionsDiv);
+                        taskList.appendChild(li);
+                    });
+                }
+            }
+
+            // --- Event Handlers ---
+            function addTask() {
+                const text = taskInput.value.trim();
+                if (text) {
+                    tasks.push({ text: text, completed: false });
+                    taskInput.value = '';
+                    saveTasks();
+                } else {
+                    // Use a message box instead of alert()
+                    displayMessage('Please enter a task description.', 'error');
+                }
+            }
+
+            function toggleTask(index) {
+                tasks[index].completed = !tasks[index].completed;
+                saveTasks();
+            }
+
+            function deleteTask(index) {
+                tasks.splice(index, 1);
+                saveTasks();
+            }
+
+            // --- Utility for non-alert messages ---
+            function displayMessage(message, type) {
+                const container = document.querySelector('.container');
+                const messageBox = document.createElement('div');
+                messageBox.textContent = message;
+                messageBox.className = `fixed top-4 right-4 p-4 rounded-lg shadow-lg text-white font-semibold z-50 transition-opacity duration-300 ${type === 'error' ? 'bg-red-600' : 'bg-green-600'}`;
+                
+                container.appendChild(messageBox);
+                
+                setTimeout(() => {
+                    messageBox.style.opacity = '0';
+                    setTimeout(() => messageBox.remove(), 300);
+                }, 2000);
+            }
+
+            // Attach events
+            addTaskButton.addEventListener('click', addTask);
+            taskInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    addTask();
+                }
+            });
+
+            // Initial render
+            renderTasks();
+        });
+    </script>
+</body>
+</html>
